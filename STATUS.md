@@ -22,6 +22,14 @@ Cel: zdjęcie wizytówki → automatyczny odczyt danych → zapis (CSV) → 1 kl
 | 9 | Bramka logowania (imię + e-mail) + /api/register + logi kto skanuje | DONE — rejestracja trafia do logów serwera, opcjonalny REGISTER_WEBHOOK_URL (Make); walidacja e-maila działa |
 | 10 | Testy regresji po redesignie | DONE — skan (stub) → KOREKTA → zapis → licznik N° 002, vCard i CSV z polskimi znakami, toast 12px nad belką, zero błędów w konsoli |
 
+## Runda 3 (2026-07-17): logo + GitHub
+
+| # | Etap | Stan |
+|---|------|------|
+| 11 | Logo (SVG + ikony PWA: 192/512, maskable 192/512, apple-touch 180) | DONE — znak "wizytówka + vermilion paser", zweryfikowany wizualnie; manifest z maskable, favicon SVG |
+| 12 | Repo GitHub 8visionai-byte/Visitcard | DONE — main wypchnięty (commity 1ee8675, 98c9062), potwierdzone git ls-remote |
+| 13 | Import w Vercelu | PO STRONIE PAWŁA — instrukcja w README (KLUCZOWE: Root Directory = `app`), env: ANTHROPIC_API_KEY, opcjonalnie SCAN_PIN i REGISTER_WEBHOOK_URL |
+
 ## NIEZWERYFIKOWANE
 - Żywe wywołanie Claude API (ekstrakcja z prawdziwym kluczem) — brak klucza w środowisku pracy; przetestowane z zaślepką odpowiedzi, format żądania zgodny ze skillem claude-api. Do potwierdzenia przyciskiem "Testuj połączenie" po wpisaniu klucza.
 - Deploy na Vercel i instalacja PWA na telefonie — wymaga konta/logowania Pawła.

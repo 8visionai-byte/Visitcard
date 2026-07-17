@@ -1,0 +1,5 @@
+# Pliki deweloperskie i dokumentacja — nie trafiają na hosting
+server-dev.js
+test/
+.claude/
+*.md

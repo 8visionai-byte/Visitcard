@@ -1,16 +1,16 @@
-// Lokalny serwer deweloperski: serwuje ./app jako statyki i podpina app/api/scan.js pod POST /api/scan
-// (ta sama funkcja, którą Vercel uruchamia w chmurze). Uruchomienie: node server-dev.js [port]
+// Lokalny serwer deweloperski: serwuje katalog projektu jako statyki i podpina api/*.js
+// (te same funkcje, które Vercel uruchamia w chmurze). Uruchomienie: node server-dev.js [port]
 'use strict';
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
 
 const PORT = Number(process.argv[2]) || 8388;
-const APP_DIR = path.join(__dirname, 'app');
+const APP_DIR = __dirname;
 const TEST_DIR = path.join(__dirname, 'test');
 const API_HANDLERS = {
-  '/api/scan': require('./app/api/scan.js'),
-  '/api/register': require('./app/api/register.js'),
+  '/api/scan': require('./api/scan.js'),
+  '/api/register': require('./api/register.js'),
 };
 
 const MIME = {

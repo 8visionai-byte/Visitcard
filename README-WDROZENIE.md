@@ -33,19 +33,18 @@ Wylogowanie: Ustawienia → Wyloguj. Kontakty zostają na urządzeniu.
 ## Wariant A — GitHub → Vercel (ZALECANY: auto-deploy po każdym pushu)
 
 Kod jest w repo: **https://github.com/8visionai-byte/Visitcard** (gałąź `main`).
-Wszystko klikasz w przeglądarce na vercel.com:
+Aplikacja leży w katalogu głównym repo, więc Vercel działa **bez żadnej konfiguracji**
+(Root Directory zostaw domyślny, Framework Preset: Other).
 
-1. vercel.com → **Add New → Project** → zaimportuj repo **Visitcard** (połącz konto GitHub, jeśli pyta).
-2. **NAJWAŻNIEJSZY KROK:** w ustawieniach importu rozwiń **Root Directory** i wybierz folder **`app`**
-   (bez tego Vercel wdroży cały projekt zamiast aplikacji i nic nie zadziała).
-3. Framework Preset: zostaw **Other**. Kliknij **Deploy**.
-4. Po deployu: projekt → **Settings → Environment Variables** i dodaj:
+1. vercel.com → **Add New → Project** → zaimportuj repo **Visitcard** → **Deploy**
+   (jeśli projekt już podpięty: nic nie rób, każdy push na `main` wdraża się sam).
+2. Projekt → **Settings → Environment Variables** i dodaj:
    - `ANTHROPIC_API_KEY` = twój klucz z console.anthropic.com (załóż OSOBNY klucz z limitem wydatków, np. 10 USD/mies.),
    - opcjonalnie `SCAN_PIN` = dowolny kod (np. 4 cyfry); aplikacja zapyta o niego w Ustawieniach — nikt obcy nie użyje twojego klucza, nawet znając adres,
    - opcjonalnie `REGISTER_WEBHOOK_URL` = webhook Make do zbierania rejestracji użytkowników.
-5. **Deployments → ⋯ przy najnowszym → Redeploy** (żeby zmienne weszły w życie).
-6. Otwórz adres projektu **na telefonie**, w menu przeglądarki wybierz **"Dodaj do ekranu głównego"** — masz apkę z logo na ekranie.
-7. W aplikacji: zarejestruj się (imię + e-mail) → Ustawienia → **Testuj połączenie** → ma pokazać "✓".
+3. **Deployments → ⋯ przy najnowszym → Redeploy** (żeby zmienne weszły w życie).
+4. Otwórz adres projektu **na telefonie**, w menu przeglądarki wybierz **"Dodaj do ekranu głównego"** — masz apkę z logo na ekranie.
+5. W aplikacji: zarejestruj się (imię + e-mail) → Ustawienia → **Testuj połączenie** → ma pokazać "✓".
 
 Od tej pory każdy push na `main` = automatyczne wdrożenie nowej wersji (a pull requesty dostają osobne adresy testowe).
 
