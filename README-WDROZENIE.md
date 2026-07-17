@@ -30,19 +30,24 @@ Wylogowanie: Ustawienia → Wyloguj. Kontakty zostają na urządzeniu.
 | `test/sample-card.png` | Testowa wizytówka do prób |
 | `BRAINSTORM-WYNIKI.md` | Wyniki panelu architektów i uzasadnienie wyboru |
 
-## Wariant A — wdrożenie na Vercel (ZALECANY, klucz bezpieczny na serwerze)
+## Wariant A — GitHub → Vercel (ZALECANY: auto-deploy po każdym pushu)
 
-Wszystko robisz na swoim komputerze (PowerShell) i w przeglądarce:
+Kod jest w repo: **https://github.com/8visionai-byte/Visitcard** (gałąź `main`).
+Wszystko klikasz w przeglądarce na vercel.com:
 
-1. Otwórz PowerShell w folderze `Aplikacja do Wizytówek\app`.
-2. Wpisz: `npx vercel login` i zaloguj się (mail albo GitHub).
-3. Wpisz: `npx vercel --prod` i potwierdzaj Enterem (nazwa projektu np. `skaner-wizytowek`).
-4. Wejdź na vercel.com → projekt → **Settings → Environment Variables** i dodaj:
+1. vercel.com → **Add New → Project** → zaimportuj repo **Visitcard** (połącz konto GitHub, jeśli pyta).
+2. **NAJWAŻNIEJSZY KROK:** w ustawieniach importu rozwiń **Root Directory** i wybierz folder **`app`**
+   (bez tego Vercel wdroży cały projekt zamiast aplikacji i nic nie zadziała).
+3. Framework Preset: zostaw **Other**. Kliknij **Deploy**.
+4. Po deployu: projekt → **Settings → Environment Variables** i dodaj:
    - `ANTHROPIC_API_KEY` = twój klucz z console.anthropic.com (załóż OSOBNY klucz z limitem wydatków, np. 10 USD/mies.),
-   - opcjonalnie `SCAN_PIN` = dowolny kod (np. 4 cyfry); wtedy aplikacja zapyta o PIN w Ustawieniach i nikt obcy nie użyje twojego klucza, nawet znając adres.
-5. Wpisz jeszcze raz `npx vercel --prod` (żeby nowe zmienne weszły w życie).
-6. Otwórz adres z Vercela **na telefonie**, w menu przeglądarki wybierz **"Dodaj do ekranu głównego"** i gotowe: masz apkę z ikoną.
-7. W aplikacji: Ustawienia → tryb "Serwer aplikacji" (domyślny), wpisz PIN jeśli ustawiłeś → **Testuj połączenie** → ma pokazać "✓".
+   - opcjonalnie `SCAN_PIN` = dowolny kod (np. 4 cyfry); aplikacja zapyta o niego w Ustawieniach — nikt obcy nie użyje twojego klucza, nawet znając adres,
+   - opcjonalnie `REGISTER_WEBHOOK_URL` = webhook Make do zbierania rejestracji użytkowników.
+5. **Deployments → ⋯ przy najnowszym → Redeploy** (żeby zmienne weszły w życie).
+6. Otwórz adres projektu **na telefonie**, w menu przeglądarki wybierz **"Dodaj do ekranu głównego"** — masz apkę z logo na ekranie.
+7. W aplikacji: zarejestruj się (imię + e-mail) → Ustawienia → **Testuj połączenie** → ma pokazać "✓".
+
+Od tej pory każdy push na `main` = automatyczne wdrożenie nowej wersji (a pull requesty dostają osobne adresy testowe).
 
 ## Wariant B — test lokalny na komputerze (bez wdrażania)
 
