@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light">
+<meta name="theme-color" content="#FAFAF7">
+<title>Skaner Wizytówek</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="logo.svg" type="image/svg+xml">
+<link rel="icon" href="icons/icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="preload" href="fonts/archivo-100_900-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/ibmplexmono-400-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="fonts.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ================= BRAMKA: REJESTRACJA UŻYTKOWNIKA ================= -->
+<section id="viewGate" class="gate hidden" aria-label="Rejestracja">
+  <div class="gate-inner">
+    <svg class="viewfinder pulse" viewBox="0 0 320 210" aria-hidden="true">
+      <!-- crop marks w rogach -->
+      <path d="M2 22 V2 H22 M298 2 H318 V22 M318 188 V208 H298 M22 208 H2 V188" fill="none" stroke="#101010" stroke-width="2"/>
+      <!-- zarys wizytówki ISO 85.6:54 -->
+      <rect x="62" y="43" width="196" height="124" fill="none" stroke="#101010" stroke-width="1.5" stroke-dasharray="7 6"/>
+      <!-- paser (registration mark) -->
+      <circle cx="160" cy="105" r="13" fill="none" stroke="#F2330D" stroke-width="1.5"/>
+      <path d="M160 84 V126 M139 105 H181" stroke="#F2330D" stroke-width="1.5"/>
+    </svg>
+
+    <p class="kicker">Skaner wizytówek · rejestracja</p>
+    <h1 class="gate-title">Papier<br>staje się<br>kontaktem<span class="dot">.</span></h1>
+    <p class="gate-sub">Zdjęcie wizytówki zamienia się w gotowy kontakt w Twoim telefonie. Zanim zaczniesz, przedstaw się.</p>
+
+    <form id="gateForm" novalidate>
+      <label>Imię
+        <input name="imie" autocomplete="given-name" required>
+      </label>
+      <label>Adres e-mail
+        <input name="email" type="email" autocomplete="email" inputmode="email" required>
+      </label>
+      <p id="gateError" class="field-error" role="alert"></p>
+      <button type="submit" class="btn-bar">Rozpocznij</button>
+      <p class="footnote">Imię i e-mail są wymagane, aby korzystać z aplikacji.</p>
+    </form>
+  </div>
+</section>
+
+<!-- ================= APLIKACJA ================= -->
+<div id="viewApp" class="hidden">
+
+  <header class="masthead">
+    <div class="mast-row">
+      <h1 class="mast-title">Kontakty</h1>
+      <button id="btnSettings" class="btn-icon" title="Ustawienia" aria-label="Ustawienia">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+          <path d="M4 7h10M18 7h2M4 12h4M12 12h8M4 17h13M20 17h0"/>
+          <circle cx="16" cy="7" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18.5" cy="17" r="2"/>
+        </svg>
+      </button>
+    </div>
+    <p class="mast-metrics"><span id="contactCount">N° 000</span> pozycji · <span id="userLabel"></span></p>
+    <div class="rule-double" aria-hidden="true"></div>
+  </header>
+
+  <main>
+    <section id="viewList" aria-label="Lista kontaktów">
+      <div class="search-row">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+          <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.5-4.5"/>
+        </svg>
+        <input id="search" type="search" placeholder="Szukaj: nazwisko, firma, telefon" autocomplete="off">
+      </div>
+
+      <div class="export-row">
+        <button id="btnExportCsv" class="btn-text">Eksport CSV ↓</button>
+        <span class="sep" aria-hidden="true">/</span>
+        <button id="btnExportVcfAll" class="btn-text">Wszystkie .vcf ↓</button>
+      </div>
+
+      <div id="emptyState" class="empty hidden">
+        <svg class="viewfinder pulse" viewBox="0 0 320 210" aria-hidden="true">
+          <path d="M2 22 V2 H22 M298 2 H318 V22 M318 188 V208 H298 M22 208 H2 V188" fill="none" stroke="#101010" stroke-width="2"/>
+          <rect x="62" y="43" width="196" height="124" fill="none" stroke="#101010" stroke-width="1.5" stroke-dasharray="7 6"/>
+          <circle cx="160" cy="105" r="13" fill="none" stroke="#F2330D" stroke-width="1.5"/>
+          <path d="M160 84 V126 M139 105 H181" stroke="#F2330D" stroke-width="1.5"/>
+        </svg>
+        <h2 class="empty-title">Kartoteka jest pusta</h2>
+        <p class="empty-sub">Zrób zdjęcie pierwszej wizytówki, a dane wpiszą się same.</p>
+        <p class="empty-cue">↓ Skanuj wizytówkę</p>
+      </div>
+
+      <ol id="contactList" class="rows"></ol>
+    </section>
+  </main>
+
+  <!-- BELKA SKANUJ -->
+  <label id="scanBar" class="scanbar" for="fileInput">
+    <span class="scanline" aria-hidden="true"></span>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+      <path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2"/>
+      <circle cx="12" cy="12" r="3.5"/>
+    </svg>
+    <span id="scanLabel">Skanuj wizytówkę</span>
+  </label>
+  <input id="fileInput" type="file" accept="image/*" capture="environment" hidden>
+
+</div>
+
+<!-- MODAL: przetwarzanie -->
+<div id="modalBusy" class="modal hidden" role="dialog" aria-modal="true">
+  <div class="sheet sheet-busy">
+    <div class="busy-strip" aria-hidden="true"></div>
+    <p id="busyText" class="busy-label">Odczyt danych…</p>
+  </div>
+</div>
+
+<!-- MODAL: korekta / edycja -->
+<div id="modalEdit" class="modal hidden" role="dialog" aria-modal="true">
+  <div class="sheet">
+    <div class="sheet-head">
+      <div>
+        <h2 id="editTitle" class="sheet-title">Korekta</h2>
+        <p class="sheet-sub">Sprawdź dane przed zapisem</p>
+      </div>
+      <button class="btn-icon" data-close="modalEdit" aria-label="Zamknij">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <img id="editPhoto" class="edit-photo hidden" alt="Zdjęcie wizytówki">
+    <form id="editForm" autocomplete="off">
+      <fieldset>
+        <legend>01 · Osoba</legend>
+        <div class="grid2">
+          <label>Imię <input name="imie"></label>
+          <label>Nazwisko <input name="nazwisko"></label>
+        </div>
+        <label>Stanowisko <input name="stanowisko"></label>
+      </fieldset>
+      <fieldset>
+        <legend>02 · Firma</legend>
+        <label>Nazwa firmy <input name="firma"></label>
+        <label>NIP <input name="nip" inputmode="numeric"></label>
+      </fieldset>
+      <fieldset>
+        <legend>03 · Kontakt</legend>
+        <label>Telefony (każdy w nowej linii) <textarea name="telefony" rows="2"></textarea></label>
+        <label>E-maile (każdy w nowej linii) <textarea name="emaile" rows="2"></textarea></label>
+        <label>Strony WWW <textarea name="www" rows="1"></textarea></label>
+        <label>Ulica i numer <input name="ulica"></label>
+        <div class="grid2">
+          <label>Kod pocztowy <input name="kod_pocztowy"></label>
+          <label>Miasto <input name="miasto"></label>
+        </div>
+        <label>Kraj <input name="kraj"></label>
+      </fieldset>
+      <fieldset>
+        <legend>04 · Notatki</legend>
+        <label>Notatki <textarea name="notatki" rows="2"></textarea></label>
+      </fieldset>
+      <div class="sheet-actions">
+        <button type="button" class="btn-text" data-close="modalEdit">Anuluj</button>
+        <button type="submit" class="btn-bar">Zapisz kontakt</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- MODAL: ustawienia -->
+<div id="modalSettings" class="modal hidden" role="dialog" aria-modal="true">
+  <div class="sheet">
+    <div class="sheet-head">
+      <div>
+        <h2 class="sheet-title">Ustawienia</h2>
+        <p class="sheet-sub">Silnik odczytu i konto</p>
+      </div>
+      <button class="btn-icon" data-close="modalSettings" aria-label="Zamknij">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <form id="settingsForm">
+      <fieldset>
+        <legend>Użytkownik</legend>
+        <p class="user-line"><span id="settingsUser"></span>
+          <button type="button" id="btnLogout" class="btn-text danger">Wyloguj</button>
+        </p>
+      </fieldset>
+      <fieldset>
+        <legend>Silnik odczytu</legend>
+        <label>Tryb
+          <select name="mode">
+            <option value="proxy">Serwer aplikacji (zalecany, klucz na serwerze)</option>
+            <option value="direct">Własny klucz API w tej przeglądarce</option>
+          </select>
+        </label>
+        <div id="rowPin">
+          <label>PIN dostępu (jeśli serwer go wymaga) <input name="pin" type="password" placeholder="opcjonalny"></label>
+        </div>
+        <div id="rowKey" class="hidden">
+          <label>Klucz API Anthropic <input name="apiKey" type="password" placeholder="sk-ant-…"></label>
+          <p class="footnote warn">Klucz zapisuje się tylko w tej przeglądarce. Używaj wyłącznie osobistego klucza z limitem wydatków.</p>
+        </div>
+        <label>Model
+          <select name="model">
+            <option value="claude-opus-4-8">Claude Opus 4.8 · najdokładniejszy · ~8 gr/skan</option>
+            <option value="claude-sonnet-5">Claude Sonnet 5 · szybki · ~4 gr/skan</option>
+            <option value="claude-haiku-4-5">Claude Haiku 4.5 · najtańszy · ~2 gr/skan</option>
+          </select>
+        </label>
+      </fieldset>
+      <div class="sheet-actions">
+        <button type="button" id="btnTestConn" class="btn-text">Testuj połączenie</button>
+        <button type="submit" class="btn-bar">Zapisz</button>
+      </div>
+      <p id="connStatus" class="footnote"></p>
+    </form>
+  </div>
+</div>
+
+<div id="toast" class="toast hidden"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
