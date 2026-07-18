@@ -1,10 +1,13 @@
 // POST /api/scan — proxy do Claude API (vision + structured outputs).
-// Klucz ANTHROPIC_API_KEY wyłącznie w zmiennych środowiskowych (Vercel / lokalny env).
-// Opcjonalnie SCAN_PIN: gdy ustawiony, żądanie musi mieć nagłówek x-scan-pin o tej wartości.
-// UWAGA: prompt i schema mają swoją kopię w app.js (tryb "własny klucz") — zmiany trzymać w synchronizacji.
+// Zmienne środowiskowe (Vercel):
+//   ANTHROPIC_API_KEY  — JEDYNY wymagany klucz; Claude vision czyta zdjęcie i zwraca dane
+//   ADMIN_CODE         — opcjonalny kod administratora; żądania z nagłówkiem x-admin-code
+//                        równym tej wartości nie podlegają darmowemu limitowi
+//   SCAN_MODEL         — opcjonalna zmiana modelu (domyślnie claude-opus-4-8)
 
 const ALLOWED_MODELS = ['claude-opus-4-8', 'claude-sonnet-5', 'claude-haiku-4-5'];
 const DEFAULT_MODEL = 'claude-opus-4-8';
+const FREE_LIMIT = 10; // darmowe skany na użytkownika (MVP: licznik po stronie klienta)
 const MAX_IMAGE_BASE64 = 3_500_000; // ~2,6 MB obrazu; frontend kompresuje do ~1568 px
 
 const CONTACT_SCHEMA = {
@@ -65,9 +68,14 @@ module.exports = async (req, res) => {
     return send(res, 500, { error: 'Serwer nie ma skonfigurowanego ANTHROPIC_API_KEY (zmienna środowiskowa).' });
   }
 
-  const pin = process.env.SCAN_PIN;
-  if (pin && req.headers['x-scan-pin'] !== pin) {
-    return send(res, 401, { error: 'Nieprawidłowy PIN.' });
+  // Admin (kod z env ADMIN_CODE) skanuje bez limitu; pozostali mają FREE_LIMIT darmowych skanów.
+  const adminCode = process.env.ADMIN_CODE;
+  const isAdmin = Boolean(adminCode) && req.headers['x-admin-code'] === adminCode;
+  if (!isAdmin) {
+    const used = parseInt(req.headers['x-scans-used'] || '0', 10) || 0;
+    if (used >= FREE_LIMIT) {
+      return send(res, 403, { error: 'Darmowy limit ' + FREE_LIMIT + ' skanów został wykorzystany.', code: 'limit' });
+    }
   }
 
   let body;
@@ -77,17 +85,17 @@ module.exports = async (req, res) => {
     return send(res, 400, { error: 'Nieprawidłowy JSON w żądaniu.' });
   }
 
-  const { image, mediaType, model } = body || {};
+  const { image, mediaType } = body || {};
   if (!image || typeof image !== 'string') return send(res, 400, { error: 'Brak obrazu (pole image, base64).' });
   if (image.length > MAX_IMAGE_BASE64) return send(res, 413, { error: 'Obraz za duży. Skompresuj zdjęcie.' });
 
-  const useModel = ALLOWED_MODELS.includes(model) ? model : DEFAULT_MODEL;
+  const useModel = ALLOWED_MODELS.includes(process.env.SCAN_MODEL) ? process.env.SCAN_MODEL : DEFAULT_MODEL;
   const useMediaType = ['image/jpeg', 'image/png', 'image/webp'].includes(mediaType) ? mediaType : 'image/jpeg';
 
   // Kto skanuje (widoczne w logach funkcji na Vercelu)
   let userEmail = 'anonim';
   try { userEmail = decodeURIComponent(req.headers['x-user-email'] || '') || 'anonim'; } catch { /* zostaje anonim */ }
-  console.log('[skan]', userEmail, useModel);
+  console.log('[skan]', userEmail, useModel, isAdmin ? 'ADMIN' : 'user');
 
   let apiRes;
   try {

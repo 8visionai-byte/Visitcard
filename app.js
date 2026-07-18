@@ -1,19 +1,12 @@
 /* Skaner Wizytówek — logika aplikacji.
-   Przepływ: rejestracja (imię + e-mail) -> zdjęcie -> kompresja (canvas, maks. 1568 px)
-   -> ekstrakcja (Claude vision + structured outputs, przez /api/scan albo własny klucz)
+   Przepływ: rejestracja (imię + e-mail) -> aparat na żywo z ramką (albo zdjęcie z galerii)
+   -> kompresja (canvas, maks. 1568 px) -> ekstrakcja przez /api/scan (klucz tylko na serwerze)
    -> formularz korekty -> IndexedDB -> vCard / CSV. */
 'use strict';
 
-/* ===================== Ustawienia ===================== */
-const SETTINGS_KEY = 'wizytownik.settings';
+/* ===================== Stan lokalny ===================== */
 const USER_KEY = 'wizytownik.user';
-const DEFAULT_SETTINGS = { mode: 'proxy', apiKey: '', pin: '', model: 'claude-opus-4-8' };
-
-function loadSettings() {
-  try { return { ...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}') }; }
-  catch { return { ...DEFAULT_SETTINGS }; }
-}
-function saveSettings(s) { localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); }
+const USAGE_KEY = 'wizytownik.usage';
 
 function loadUser() {
   try { return JSON.parse(localStorage.getItem(USER_KEY) || 'null'); }
@@ -21,96 +14,34 @@ function loadUser() {
 }
 function saveUser(u) { localStorage.setItem(USER_KEY, JSON.stringify(u)); }
 
-/* ===================== Ekstrakcja (kopia promptu/schemy z api/scan.js — trzymać w synchronizacji) ===== */
-const CONTACT_SCHEMA = {
-  type: 'object',
-  properties: {
-    imie: { type: ['string', 'null'] },
-    nazwisko: { type: ['string', 'null'] },
-    firma: { type: ['string', 'null'] },
-    stanowisko: { type: ['string', 'null'] },
-    telefony: { type: 'array', items: { type: 'string' } },
-    emaile: { type: 'array', items: { type: 'string' } },
-    www: { type: 'array', items: { type: 'string' } },
-    ulica: { type: ['string', 'null'] },
-    kod_pocztowy: { type: ['string', 'null'] },
-    miasto: { type: ['string', 'null'] },
-    kraj: { type: ['string', 'null'] },
-    nip: { type: ['string', 'null'] },
-    notatki: { type: ['string', 'null'] },
-  },
-  required: ['imie', 'nazwisko', 'firma', 'stanowisko', 'telefony', 'emaile', 'www',
-    'ulica', 'kod_pocztowy', 'miasto', 'kraj', 'nip', 'notatki'],
-  additionalProperties: false,
-};
+function getUsage() {
+  try { return JSON.parse(localStorage.getItem(USAGE_KEY) || '{"scans":0}'); }
+  catch { return { scans: 0 }; }
+}
+function addScan() {
+  const u = getUsage();
+  u.scans = (u.scans || 0) + 1;
+  localStorage.setItem(USAGE_KEY, JSON.stringify(u));
+}
 
-const PROMPT = [
-  'Odczytaj dane kontaktowe z tej wizytówki (możliwe języki: polski, angielski, niemiecki).',
-  'Zwróć wyłącznie informacje widoczne na wizytówce. Jeśli jakiegoś pola nie ma, zwróć null (dla list: pustą tablicę).',
-  'Nie zgaduj i nie uzupełniaj danych z wiedzy ogólnej.',
-  'Telefony zapisuj tak, jak są na wizytówce (z kierunkowym, jeśli podany).',
-  'Pole nip wypełnij tylko, gdy numer jest jednoznacznie oznaczony jako NIP (nie REGON, nie KRS).',
-  'W polu notatki umieść ewentualne dodatkowe informacje z wizytówki (np. godziny, drugi adres, slogan pomiń).',
-].join(' ');
-
-async function extractViaProxy(base64, mediaType, settings) {
+/* ===================== Ekstrakcja (serwer /api/scan) ===================== */
+async function extractContact(base64, mediaType) {
   const headers = { 'content-type': 'application/json' };
-  if (settings.pin) headers['x-scan-pin'] = settings.pin;
   const user = loadUser();
   if (user) {
     headers['x-user-email'] = encodeURIComponent(user.email);
     headers['x-user-name'] = encodeURIComponent(user.imie);
   }
+  headers['x-scans-used'] = String(getUsage().scans || 0);
   const res = await fetch('api/scan', {
     method: 'POST', headers,
-    body: JSON.stringify({ image: base64, mediaType, model: settings.model }),
+    body: JSON.stringify({ image: base64, mediaType }),
   });
   const data = await res.json().catch(() => null);
   if (!res.ok) {
-    const msg = data && data.error ? data.error : 'HTTP ' + res.status;
-    if (res.status === 404) throw new Error('Serwer aplikacji nie ma funkcji /api/scan. W Ustawieniach przełącz tryb na "Własny klucz API".');
-    throw new Error(msg);
+    throw new Error(data && data.error ? data.error : 'HTTP ' + res.status);
   }
   return data.contact;
-}
-
-async function extractDirect(base64, mediaType, settings) {
-  if (!settings.apiKey) throw new Error('Brak klucza API. Wpisz go w Ustawieniach.');
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      'x-api-key': settings.apiKey,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true',
-    },
-    body: JSON.stringify({
-      model: settings.model,
-      max_tokens: 2048,
-      messages: [{
-        role: 'user',
-        content: [
-          { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64 } },
-          { type: 'text', text: PROMPT },
-        ],
-      }],
-      output_config: { format: { type: 'json_schema', schema: CONTACT_SCHEMA } },
-    }),
-  });
-  const data = await res.json().catch(() => null);
-  if (!res.ok) {
-    const msg = data && data.error && data.error.message ? data.error.message : 'HTTP ' + res.status;
-    throw new Error('Claude API: ' + msg);
-  }
-  if (data.stop_reason === 'refusal') throw new Error('Model odmówił przetworzenia obrazu. Zrób zdjęcie ponownie.');
-  const block = (data.content || []).find((b) => b.type === 'text');
-  if (!block) throw new Error('Pusta odpowiedź modelu.');
-  return JSON.parse(block.text);
-}
-
-async function extractContact(base64, mediaType) {
-  const s = loadSettings();
-  return s.mode === 'direct' ? extractDirect(base64, mediaType, s) : extractViaProxy(base64, mediaType, s);
 }
 
 /* ===================== Obraz: kompresja i miniatura ===================== */
@@ -236,10 +167,12 @@ function buildCsv(contacts) {
 
 /* ===================== Pobieranie / udostępnianie plików ===================== */
 const IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+const IS_MOBILE = IS_IOS || /Android/.test(navigator.userAgent);
 async function deliverFile(filename, mime, content) {
   const blob = new Blob([content], { type: mime });
   const file = new File([blob], filename, { type: mime });
-  if (IS_IOS && navigator.canShare && navigator.canShare({ files: [file] })) {
+  // Na telefonie arkusz udostępniania to najkrótsza droga do Kontaktów
+  if (IS_MOBILE && navigator.canShare && navigator.canShare({ files: [file] })) {
     try { await navigator.share({ files: [file] }); return; }
     catch (e) { if (e.name === 'AbortError') return; }
   }
@@ -378,6 +311,7 @@ async function handleFile(file) {
   try {
     const { base64, mediaType, thumb } = await prepareImages(file);
     const extracted = await extractContact(base64, mediaType);
+    addScan();
     hideModal('modalBusy');
     setScanBusy(false);
     openEditForm({
@@ -391,6 +325,104 @@ async function handleFile(file) {
     setScanBusy(false);
     toast('Błąd: ' + e.message, { error: true });
   }
+}
+
+/* ===================== Skaner: aparat na żywo z ramką ===================== */
+let camStream = null;
+
+async function openScanner() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    $('#fileInput').click();
+    return;
+  }
+  try {
+    camStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } },
+      audio: false,
+    });
+    $('#camVideo').srcObject = camStream;
+    showModal('modalScanner');
+  } catch {
+    // brak aparatu albo brak zgody: klasyczny wybór zdjęcia
+    $('#fileInput').click();
+  }
+}
+
+function closeScanner() {
+  if (camStream) {
+    camStream.getTracks().forEach((t) => t.stop());
+    camStream = null;
+  }
+  $('#camVideo').srcObject = null;
+  hideModal('modalScanner');
+}
+
+async function captureFromCamera() {
+  const video = $('#camVideo');
+  const guide = document.querySelector('.scan-guide');
+  const sw = video.videoWidth, sh = video.videoHeight;
+  if (!sw || !sh) return;
+
+  // Wideo wypełnia ekran w trybie "cover" — przelicz ramkę z ekranu na piksele źródła.
+  const vr = video.getBoundingClientRect();
+  const gr = guide.getBoundingClientRect();
+  const scale = Math.max(vr.width / sw, vr.height / sh);
+  const srcX = (sw - vr.width / scale) / 2;
+  const srcY = (sh - vr.height / scale) / 2;
+
+  const pad = 0.05; // niewielki margines wokół ramki
+  let cx = srcX + (gr.left - vr.left) / scale;
+  let cy = srcY + (gr.top - vr.top) / scale;
+  let cw = gr.width / scale;
+  let ch = gr.height / scale;
+  cx -= cw * pad; cy -= ch * pad; cw *= 1 + 2 * pad; ch *= 1 + 2 * pad;
+  cx = Math.max(0, cx); cy = Math.max(0, cy);
+  cw = Math.min(cw, sw - cx); ch = Math.min(ch, sh - cy);
+
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(cw);
+  canvas.height = Math.round(ch);
+  canvas.getContext('2d').drawImage(video, cx, cy, cw, ch, 0, 0, canvas.width, canvas.height);
+  const blob = await new Promise((r) => canvas.toBlob(r, 'image/jpeg', 0.92));
+  closeScanner();
+  handleFile(blob);
+}
+
+/* Jednorazowa prośba o dostęp do aparatu zaraz po rejestracji (zgoda jest zapamiętywana). */
+async function warmUpCamera() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
+  try {
+    const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });
+    s.getTracks().forEach((t) => t.stop());
+    toast('Aparat gotowy. Kliknij "Skanuj wizytówkę".');
+  } catch { /* odmowa — zostaje wybór zdjęcia z galerii */ }
+}
+
+/* ===================== Instalacja PWA ===================== */
+let deferredInstall = null;
+const IS_STANDALONE = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+
+function refreshInstallUi() {
+  const canPrompt = Boolean(deferredInstall);
+  const showAnything = !IS_STANDALONE;
+  $('#btnInstallBanner').classList.toggle('hidden', !showAnything || (!canPrompt && !IS_MOBILE));
+  $('#btnInstall').classList.toggle('hidden', !showAnything);
+}
+
+async function installApp() {
+  if (deferredInstall) {
+    deferredInstall.prompt();
+    const choice = await deferredInstall.userChoice.catch(() => null);
+    deferredInstall = null;
+    refreshInstallUi();
+    if (choice && choice.outcome === 'accepted') toast('Aplikacja instaluje się na telefonie.');
+    return;
+  }
+  if (IS_STANDALONE) { toast('Aplikacja jest już zainstalowana.'); return; }
+  // iPhone (brak automatycznej instalacji) albo przeglądarka bez beforeinstallprompt
+  $('#installStepsIos').classList.toggle('hidden', !IS_IOS);
+  $('#installStepsAndroid').classList.toggle('hidden', IS_IOS);
+  showModal('modalInstall');
 }
 
 /* ===================== Rejestracja użytkownika ===================== */
@@ -432,8 +464,14 @@ function bindEvents() {
     await registerUser(imie, email);
     applyGate();
     renderList();
-    toast('Witaj, ' + imie + '. Zeskanuj pierwszą wizytówkę.');
+    refreshInstallUi();
+    warmUpCamera(); // jednorazowa zgoda na aparat od razu po wejściu
   });
+
+  $('#scanBar').addEventListener('click', openScanner);
+  $('#btnShutter').addEventListener('click', captureFromCamera);
+  $('#btnScanClose').addEventListener('click', closeScanner);
+  $('#btnGallery').addEventListener('click', () => { closeScanner(); $('#fileInput').click(); });
 
   $('#fileInput').addEventListener('change', (e) => {
     handleFile(e.target.files[0]);
@@ -480,16 +518,10 @@ function bindEvents() {
   });
 
   $('#btnSettings').addEventListener('click', () => {
-    const s = loadSettings();
-    const f = $('#settingsForm');
-    f.mode.value = s.mode;
-    f.apiKey.value = s.apiKey;
-    f.pin.value = s.pin;
-    f.model.value = s.model;
-    toggleSettingsRows(s.mode);
-    $('#connStatus').textContent = '';
     const user = loadUser();
     if (user) $('#settingsUser').textContent = user.imie + ' · ' + user.email;
+    $('#connStatus').textContent = '';
+    refreshInstallUi();
     showModal('modalSettings');
   });
 
@@ -500,25 +532,16 @@ function bindEvents() {
     applyGate();
   });
 
-  $('#settingsForm').mode.addEventListener('change', (e) => toggleSettingsRows(e.target.value));
-
-  $('#settingsForm').addEventListener('submit', (e) => {
-    e.preventDefault();
-    const f = e.target;
-    saveSettings({ mode: f.mode.value, apiKey: f.apiKey.value.trim(), pin: f.pin.value.trim(), model: f.model.value });
-    hideModal('modalSettings');
-    toast('Ustawienia zapisane.');
-  });
+  $('#btnInstall').addEventListener('click', installApp);
+  $('#btnInstallBanner').addEventListener('click', installApp);
 
   $('#btnTestConn').addEventListener('click', async () => {
-    const f = $('#settingsForm');
-    const s = { mode: f.mode.value, apiKey: f.apiKey.value.trim(), pin: f.pin.value.trim(), model: f.model.value };
     const status = $('#connStatus');
     status.textContent = 'Testuję…';
     try {
-      // Test na maleńkim obrazku 2x2 px (JPEG) — sprawdza klucz/PIN/łączność za grosze.
+      // Test na maleńkim obrazku 2x2 px (JPEG) — sprawdza serwer i klucz za grosze.
       const tiny = await tinyJpegBase64();
-      const contact = s.mode === 'direct' ? await extractDirect(tiny, 'image/jpeg', s) : await extractViaProxy(tiny, 'image/jpeg', s);
+      const contact = await extractContact(tiny, 'image/jpeg');
       status.textContent = contact ? '✓ Połączenie działa. Można skanować.' : 'Odpowiedź pusta.';
     } catch (err) {
       status.textContent = '✗ ' + err.message;
@@ -527,11 +550,12 @@ function bindEvents() {
 
   document.querySelectorAll('[data-close]').forEach((btn) =>
     btn.addEventListener('click', () => hideModal(btn.dataset.close)));
-}
 
-function toggleSettingsRows(mode) {
-  $('#rowKey').classList.toggle('hidden', mode !== 'direct');
-  $('#rowPin').classList.toggle('hidden', mode !== 'proxy');
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredInstall = e;
+    refreshInstallUi();
+  });
 }
 
 async function tinyJpegBase64() {
@@ -549,10 +573,11 @@ window.addEventListener('DOMContentLoaded', () => {
   bindEvents();
   applyGate();
   renderList();
+  refreshInstallUi();
   if ('serviceWorker' in navigator && location.protocol === 'https:') {
     navigator.serviceWorker.register('sw.js').catch(() => {});
   }
 });
 
 /* Interfejs diagnostyczny (używany przez testy automatyczne; bezpieczny w produkcji). */
-window.__app = { handleFile, buildVCard, buildCsv, dbAll, prepareImages, extractContact, renderList, loadUser };
+window.__app = { handleFile, buildVCard, buildCsv, dbAll, prepareImages, extractContact, renderList, loadUser, openScanner };

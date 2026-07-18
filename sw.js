@@ -1,5 +1,5 @@
 // Service worker: cache shella aplikacji (offline start). Żądania do /api zawsze z sieci.
-const CACHE = 'wizytownik-v3';
+const CACHE = 'wizytownik-v4';
 const SHELL = ['./', './index.html', './style.css', './fonts.css', './app.js', './manifest.webmanifest',
   './logo.svg', './icons/icon-192.png', './icons/icon-512.png',
   './icons/icon-maskable-192.png', './icons/icon-maskable-512.png', './icons/apple-touch-icon.png',

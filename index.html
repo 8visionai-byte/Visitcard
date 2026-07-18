@@ -21,18 +21,15 @@
 <section id="viewGate" class="gate hidden" aria-label="Rejestracja">
   <div class="gate-inner">
     <svg class="viewfinder pulse" viewBox="0 0 320 210" aria-hidden="true">
-      <!-- crop marks w rogach -->
       <path d="M2 22 V2 H22 M298 2 H318 V22 M318 188 V208 H298 M22 208 H2 V188" fill="none" stroke="#101010" stroke-width="2"/>
-      <!-- zarys wizytówki ISO 85.6:54 -->
       <rect x="62" y="43" width="196" height="124" fill="none" stroke="#101010" stroke-width="1.5" stroke-dasharray="7 6"/>
-      <!-- paser (registration mark) -->
       <circle cx="160" cy="105" r="13" fill="none" stroke="#F2330D" stroke-width="1.5"/>
       <path d="M160 84 V126 M139 105 H181" stroke="#F2330D" stroke-width="1.5"/>
     </svg>
 
     <p class="kicker">Skaner wizytówek · rejestracja</p>
     <h1 class="gate-title">Papier<br>staje się<br>kontaktem<span class="dot">.</span></h1>
-    <p class="gate-sub">Zdjęcie wizytówki zamienia się w gotowy kontakt w Twoim telefonie. Zanim zaczniesz, przedstaw się.</p>
+    <p class="gate-sub">Zdjęcie wizytówki zamienia się w gotowy kontakt w Twoim telefonie. Za darmo. Zanim zaczniesz, przedstaw się.</p>
 
     <form id="gateForm" novalidate>
       <label>Imię
@@ -43,8 +40,11 @@
       </label>
       <p id="gateError" class="field-error" role="alert"></p>
       <button type="submit" class="btn-bar">Rozpocznij</button>
-      <p class="footnote">Imię i e-mail są wymagane, aby korzystać z aplikacji.</p>
+      <p class="footnote">Imię i e-mail są wymagane, aby korzystać z aplikacji. Po rejestracji aplikacja
+      poprosi o dostęp do aparatu — zgoda jest zapamiętywana, pytamy tylko raz.</p>
     </form>
+
+    <p class="powered">Powered by <a href="https://simplefast.ai" target="_blank" rel="noopener">SimpleFast.AI</a></p>
   </div>
 </section>
 
@@ -63,6 +63,7 @@
     </div>
     <p class="mast-metrics"><span id="contactCount">N° 000</span> pozycji · <span id="userLabel"></span></p>
     <div class="rule-double" aria-hidden="true"></div>
+    <button id="btnInstallBanner" class="btn-text install-banner hidden">Zainstaluj aplikację na telefonie ↓</button>
   </header>
 
   <main>
@@ -88,25 +89,46 @@
           <path d="M160 84 V126 M139 105 H181" stroke="#F2330D" stroke-width="1.5"/>
         </svg>
         <h2 class="empty-title">Kartoteka jest pusta</h2>
-        <p class="empty-sub">Zrób zdjęcie pierwszej wizytówki, a dane wpiszą się same.</p>
+        <p class="empty-sub">Wyceluj w pierwszą wizytówkę, a dane wpiszą się same.</p>
         <p class="empty-cue">↓ Skanuj wizytówkę</p>
       </div>
 
       <ol id="contactList" class="rows"></ol>
+
+      <p class="powered">Powered by <a href="https://simplefast.ai" target="_blank" rel="noopener">SimpleFast.AI</a></p>
     </section>
   </main>
 
   <!-- BELKA SKANUJ -->
-  <label id="scanBar" class="scanbar" for="fileInput">
+  <button id="scanBar" class="scanbar" type="button">
     <span class="scanline" aria-hidden="true"></span>
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
       <path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2"/>
       <circle cx="12" cy="12" r="3.5"/>
     </svg>
     <span id="scanLabel">Skanuj wizytówkę</span>
-  </label>
+  </button>
   <input id="fileInput" type="file" accept="image/*" capture="environment" hidden>
 
+</div>
+
+<!-- MODAL: SKANER (aparat na żywo) -->
+<div id="modalScanner" class="modal scanner hidden" role="dialog" aria-modal="true">
+  <div class="scanner-stage">
+    <video id="camVideo" autoplay playsinline muted></video>
+    <div class="scan-guide" aria-hidden="true"></div>
+    <div class="scanner-top">
+      <p class="scanner-hint">Ustaw wizytówkę w ramce</p>
+      <button id="btnScanClose" class="btn-icon light" aria-label="Zamknij">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <div class="scanner-controls">
+      <button id="btnGallery" class="btn-text light">Z galerii</button>
+      <button id="btnShutter" aria-label="Zrób zdjęcie"></button>
+      <span class="scanner-spacer" aria-hidden="true"></span>
+    </div>
+  </div>
 </div>
 
 <!-- MODAL: przetwarzanie -->
@@ -174,48 +196,51 @@
     <div class="sheet-head">
       <div>
         <h2 class="sheet-title">Ustawienia</h2>
-        <p class="sheet-sub">Silnik odczytu i konto</p>
+        <p class="sheet-sub">Konto i aplikacja</p>
       </div>
       <button class="btn-icon" data-close="modalSettings" aria-label="Zamknij">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M6 6l12 12M18 6L6 18"/></svg>
       </button>
     </div>
-    <form id="settingsForm">
-      <fieldset>
-        <legend>Użytkownik</legend>
-        <p class="user-line"><span id="settingsUser"></span>
-          <button type="button" id="btnLogout" class="btn-text danger">Wyloguj</button>
-        </p>
-      </fieldset>
-      <fieldset>
-        <legend>Silnik odczytu</legend>
-        <label>Tryb
-          <select name="mode">
-            <option value="proxy">Serwer aplikacji (zalecany, klucz na serwerze)</option>
-            <option value="direct">Własny klucz API w tej przeglądarce</option>
-          </select>
-        </label>
-        <div id="rowPin">
-          <label>PIN dostępu (jeśli serwer go wymaga) <input name="pin" type="password" placeholder="opcjonalny"></label>
-        </div>
-        <div id="rowKey" class="hidden">
-          <label>Klucz API Anthropic <input name="apiKey" type="password" placeholder="sk-ant-…"></label>
-          <p class="footnote warn">Klucz zapisuje się tylko w tej przeglądarce. Używaj wyłącznie osobistego klucza z limitem wydatków.</p>
-        </div>
-        <label>Model
-          <select name="model">
-            <option value="claude-opus-4-8">Claude Opus 4.8 · najdokładniejszy · ~8 gr/skan</option>
-            <option value="claude-sonnet-5">Claude Sonnet 5 · szybki · ~4 gr/skan</option>
-            <option value="claude-haiku-4-5">Claude Haiku 4.5 · najtańszy · ~2 gr/skan</option>
-          </select>
-        </label>
-      </fieldset>
-      <div class="sheet-actions">
-        <button type="button" id="btnTestConn" class="btn-text">Testuj połączenie</button>
-        <button type="submit" class="btn-bar">Zapisz</button>
-      </div>
+    <fieldset>
+      <legend>Użytkownik</legend>
+      <p class="user-line"><span id="settingsUser"></span>
+        <button type="button" id="btnLogout" class="btn-text danger">Wyloguj</button>
+      </p>
+    </fieldset>
+    <fieldset>
+      <legend>Aplikacja</legend>
+      <button type="button" id="btnInstall" class="btn-bar">Zainstaluj na telefonie</button>
+      <p class="footnote">Aplikacja zainstaluje się z ikoną na ekranie głównym i będzie działać jak zwykła apka.</p>
+      <button type="button" id="btnTestConn" class="btn-text">Testuj połączenie z serwerem</button>
       <p id="connStatus" class="footnote"></p>
-    </form>
+    </fieldset>
+    <p class="powered">Powered by <a href="https://simplefast.ai" target="_blank" rel="noopener">SimpleFast.AI</a></p>
+  </div>
+</div>
+
+<!-- MODAL: instrukcja instalacji (iPhone / gdy brak automatycznej) -->
+<div id="modalInstall" class="modal hidden" role="dialog" aria-modal="true">
+  <div class="sheet">
+    <div class="sheet-head">
+      <div>
+        <h2 class="sheet-title">Instalacja</h2>
+        <p class="sheet-sub">Dodaj aplikację do ekranu głównego</p>
+      </div>
+      <button class="btn-icon" data-close="modalInstall" aria-label="Zamknij">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <ol class="install-steps" id="installStepsIos">
+      <li>Na dole Safari kliknij przycisk <strong>Udostępnij</strong> (kwadrat ze strzałką w górę).</li>
+      <li>Przewiń listę i wybierz <strong>„Do ekranu początkowego"</strong>.</li>
+      <li>Potwierdź przyciskiem <strong>Dodaj</strong> — ikona pojawi się na ekranie głównym.</li>
+    </ol>
+    <ol class="install-steps hidden" id="installStepsAndroid">
+      <li>Kliknij <strong>menu ⋮</strong> w prawym górnym rogu przeglądarki.</li>
+      <li>Wybierz <strong>„Dodaj do ekranu głównego"</strong> / <strong>„Zainstaluj aplikację"</strong>.</li>
+      <li>Potwierdź — ikona pojawi się na ekranie głównym.</li>
+    </ol>
   </div>
 </div>
 
