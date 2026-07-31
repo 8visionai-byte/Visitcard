@@ -48,6 +48,7 @@ Cel: zdjęcie wizytówki → automatyczny odczyt danych → zapis (CSV) → 1 kl
 | 20 | Wyszukiwanie bez ogonków i po numerach | DONE — normalizacja NFD + `ł→l` ("wisniewska" znajduje "Wiśniewską"), osobny indeks cyfr ("601234567" znajduje "+48 601 234 567", NIP bez myślników) |
 | 21 | Notatka widoczna w wierszu listy (bez tego wynik szukania po notatce jest niezrozumiały) | DONE — `.row-note` z vermilion kreską, przycięta do 3 linii |
 | 22 | Testy: 16 przypadków wyszukiwania + regresja | DONE — wszystkie trafienia poprawne; wykryty i naprawiony fałszywy wynik ("lak" łapało "dla kosmetyków" przez sklejkę bez separatorów → sklejanie zawężone do cyfr); vCard, CSV, edycja i licznik bez regresji |
+| 23 | Wdrożenie i test NA PRODUKCJI | DONE — commit 7142310 wdrożony; na visitcard-lemon.vercel.app potwierdzone w przeglądarce: szukanie po notatkach ("targach", "automatyzacji", "podwykonawcy", "wrzesniu" bez ogonka), po NIP-ie i telefonie bez separatorów, nazwisko bez ogonków, brak fałszywych trafień, notatki widoczne w wierszach |
 
 ## NIEZWERYFIKOWANE
 - Aparat na żywo i instalacja PWA na fizycznym telefonie (panel przeglądarki blokuje kamerę; do sprawdzenia przez Pawła na komórce).
