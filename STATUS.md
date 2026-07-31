@@ -30,10 +30,32 @@ Cel: zdjęcie wizytówki → automatyczny odczyt danych → zapis (CSV) → 1 kl
 | 12 | Repo GitHub 8visionai-byte/Visitcard | DONE — main wypchnięty (commity 1ee8675, 98c9062), potwierdzone git ls-remote |
 | 13 | Import w Vercelu | PO STRONIE PAWŁA — instrukcja w README (KLUCZOWE: Root Directory = `app`), env: ANTHROPIC_API_KEY, opcjonalnie SCAN_PIN i REGISTER_WEBHOOK_URL |
 
+## Runda 4 (2026-07-17/18): skaner na żywo, bez limitów, produkcja
+
+| # | Etap | Stan |
+|---|------|------|
+| 14 | Fix 404 na Vercelu (aplikacja przeniesiona do roota repo, zero-config) | DONE — commit 5fd6d6c; produkcja serwuje aplikację |
+| 15 | Skaner: aparat na żywo z ramką ISO + kadrowanie, zgoda na aparat raz po rejestracji, fallback galeria | DONE — geometria nakładki zweryfikowana (proporcje 1.585, przyciemnienie, vermilion narożniki); kamera per se do potwierdzenia na fizycznym telefonie |
+| 16 | Bez limitów i płatności (decyzja Pawła: budowanie zasięgu); plumbing limitów/admina czeka w api/scan.js | DONE — skan przechodzi przy dowolnym liczniku; ekran cen NIE zbudowany celowo |
+| 17 | Uproszczone ustawienia (zero kluczy od użytkowników), instalacja PWA (beforeinstallprompt + instrukcja iOS), stopka "Powered by SimpleFast.AI" → simplefast.ai, vCard przez share także na Androidzie | DONE — commit 8d80d17 |
+| 18 | PRAWDZIWY E2E NA PRODUKCJI | DONE — 2026-07-18: /api/scan 200 w 5,0 s, Opus 4.8 odczytał testową wizytówkę bezbłędnie (wszystkie pola, null tam gdzie brak danych), 1798+184 tokenów ≈ 5 gr; klucz z env Vercela działa |
+
+## Runda 5 (2026-07-18): naprawa wyszukiwarki
+
+| # | Etap | Stan |
+|---|------|------|
+| 19 | BUG: wyszukiwarka pomijała notatki (a także NIP, adres, kod pocztowy, kraj, WWW) | DONE — nowy `searchIndex()` obejmuje WSZYSTKIE pola kontaktu; procedura naczyń połączonych: grep potwierdził 6 pozostałych konsumentów pola `notatki` (vCard, CSV, formularz, zapis, schema+prompt w api/scan.js, pole w index.html) — wszystkie działały, wyszukiwarka była jedyną nietkniętą warstwą |
+| 20 | Wyszukiwanie bez ogonków i po numerach | DONE — normalizacja NFD + `ł→l` ("wisniewska" znajduje "Wiśniewską"), osobny indeks cyfr ("601234567" znajduje "+48 601 234 567", NIP bez myślników) |
+| 21 | Notatka widoczna w wierszu listy (bez tego wynik szukania po notatce jest niezrozumiały) | DONE — `.row-note` z vermilion kreską, przycięta do 3 linii |
+| 22 | Testy: 16 przypadków wyszukiwania + regresja | DONE — wszystkie trafienia poprawne; wykryty i naprawiony fałszywy wynik ("lak" łapało "dla kosmetyków" przez sklejkę bez separatorów → sklejanie zawężone do cyfr); vCard, CSV, edycja i licznik bez regresji |
+
 ## NIEZWERYFIKOWANE
-- Żywe wywołanie Claude API (ekstrakcja z prawdziwym kluczem) — brak klucza w środowisku pracy; przetestowane z zaślepką odpowiedzi, format żądania zgodny ze skillem claude-api. Do potwierdzenia przyciskiem "Testuj połączenie" po wpisaniu klucza.
-- Deploy na Vercel i instalacja PWA na telefonie — wymaga konta/logowania Pawła.
+- Aparat na żywo i instalacja PWA na fizycznym telefonie (panel przeglądarki blokuje kamerę; do sprawdzenia przez Pawła na komórce).
 
 ## Notatki
 - Sesja: 2026-07-16, start zadania.
-- Ograniczenia: zero sekretów w repo/plikach (klucz API wpisuje user w UI aplikacji), maszyna Windows, deliverable = plik + wdrożenie.
+- Klucz API tylko w env Vercela (użytkownicy nie podają niczego); zero sekretów w repo.
+- Następne możliwe etapy: "Zapisz w Kontaktach Google" (1 klik, wymaga OAuth Client ID Pawła), auto-wykrywanie rogów wizytówki, monetyzacja (plumbing gotowy: ADMIN_CODE + licznik skanów).
+- Zamknięcie 2026-07-18: repo zsynchronizowane (HEAD 8d80d17 = origin/main), produkcja visitcard-lemon.vercel.app serwuje aktualną wersję (kontrola 200 + bramka rejestracji), prawdziwy skan E2E potwierdzony (etap 18).
+
+AUTO-RESUME: DONE

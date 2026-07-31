@@ -216,12 +216,38 @@ function contactTitle(c) {
 const PLACEHOLDER_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">'
   + '<rect x="3" y="6" width="18" height="12"/><path d="M6.5 10h5M6.5 13.5h8"/></svg>';
 
+/* Wyszukiwanie: bez wielkości liter, bez polskich ogonków (na telefonie rzadko się je pisze)
+   i bez separatorów w numerach, żeby "601234567" znalazło "+48 601 234 567". */
+function normalizeText(v) {
+  return String(v == null ? '' : v)
+    .toLowerCase()
+    .replace(/ł/g, 'l')
+    .normalize('NFD').replace(/\p{Mn}/gu, ''); // usuwa ogonki i kreski (ą->a, ś->s)
+}
+
+/* Indeks wyszukiwania = WSZYSTKIE pola kontaktu (łącznie z notatkami, NIP-em i adresem).
+   Przy dodaniu nowego pola do kontaktu dopisz je tutaj. */
+function searchIndex(c) {
+  const parts = [
+    c.imie, c.nazwisko, c.firma, c.stanowisko,
+    ...(c.telefony || []), ...(c.emaile || []), ...(c.www || []),
+    c.ulica, c.kod_pocztowy, c.miasto, c.kraj, c.nip, c.notatki,
+  ];
+  const text = normalizeText(parts.filter(Boolean).join(' '));
+  // Osobny indeks samych cyfr: "601234567" znajdzie "+48 601 234 567", a NIP działa
+  // niezależnie od myślników. Trzymany osobno, żeby litery nie sklejały się w fałszywe trafienia.
+  return { text, digits: text.replace(/\D/g, '') };
+}
+
 async function renderList() {
   const all = (await dbAll()).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-  const q = $('#search').value.trim().toLowerCase();
-  const filtered = !q ? all : all.filter((c) =>
-    JSON.stringify([c.imie, c.nazwisko, c.firma, c.stanowisko, c.telefony, c.emaile, c.miasto])
-      .toLowerCase().includes(q));
+  const q = normalizeText($('#search').value.trim());
+  const qDigits = q.replace(/\D/g, '');
+  const szukajPoCyfrach = qDigits.length >= 3 && !/[a-z]/.test(q); // zapytanie wygląda na numer
+  const filtered = !q ? all : all.filter((c) => {
+    const idx = searchIndex(c);
+    return idx.text.includes(q) || (szukajPoCyfrach && idx.digits.includes(qDigits));
+  });
 
   $('#contactCount').textContent = 'N° ' + String(all.length).padStart(3, '0');
   const user = loadUser();
@@ -260,6 +286,13 @@ async function renderList() {
     data.className = 'row-data';
     data.textContent = [(c.telefony || [])[0], (c.emaile || [])[0]].filter(Boolean).join(' · ');
     body.append(name, meta, data);
+
+    if (c.notatki) {
+      const note = document.createElement('div');
+      note.className = 'row-note';
+      note.textContent = c.notatki;
+      body.append(note);
+    }
 
     const actions = document.createElement('div');
     actions.className = 'row-actions';

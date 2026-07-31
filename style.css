@@ -173,6 +173,13 @@ main { max-width: 680px; margin: 0 auto; padding: 0 20px; }
   color: var(--ink-2); font-size: 11px; letter-spacing: 0.02em;
   margin-top: 2px; overflow-wrap: anywhere;
 }
+.row-note {
+  margin-top: 6px; padding-left: 9px;
+  border-left: 2px solid var(--verm);
+  font-size: 13px; line-height: 1.4; color: var(--ink);
+  overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
 .row-actions { grid-area: actions; display: flex; align-items: center; gap: 16px; }
 
 .btn-chip {
